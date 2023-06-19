@@ -1,4 +1,6 @@
 const listOfVidsElm = document.getElementById("listOfRequests");
+let sortBy = "newFirst";
+let searchTerm = "";
 
 function renderSingleVid(vidInfo, isPrepend = false) {
   const vidContainerElm = document.createElement("div");
@@ -68,8 +70,10 @@ function renderSingleVid(vidInfo, isPrepend = false) {
   });
 }
 
-function loadAllVidsReq(sortBy = "newFirst") {
-  fetch(`http://localhost:7777/video-request?sortBy=${sortBy}`)
+function loadAllVidsReq(sortBy = "newFirst", searchTerm = "") {
+  fetch(
+    `http://localhost:7777/video-request?sortBy=${sortBy}&searchTerm=${searchTerm}`
+  )
     .then((res) => res.json())
     .then((data) => {
       listOfVidsElm.innerHTML = "";
@@ -79,9 +83,22 @@ function loadAllVidsReq(sortBy = "newFirst") {
     });
 }
 
+// prevent sending request on typing every character
+function debounce(fn, time) {
+  let timeout;
+  return function (...args) {
+    clearTimeout(timeout);
+
+    timeout = setTimeout(() => {
+      fn.apply(this, args);
+    }, time);
+  };
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const formVideoRequest = document.getElementById("form");
   const sortByElms = document.querySelectorAll("[id*=sort_by_]");
+  const searchBox = document.getElementById("search_box");
 
   loadAllVidsReq();
 
@@ -89,23 +106,30 @@ document.addEventListener("DOMContentLoaded", () => {
     elm.addEventListener("click", function (e) {
       e.preventDefault();
 
-      const sortBy = this.querySelector("input");
+      sortBy = this.querySelector("input").value;
 
       this.classList.add("active");
-      if (sortBy.value === "topVotedFirst") {
+      if (sortBy === "topVotedFirst") {
         document.getElementById("sort_by_new").classList.remove("active");
       } else {
         document.getElementById("sort_by_top").classList.remove("active");
       }
 
-      loadAllVidsReq(sortBy.value);
+      loadAllVidsReq(sortBy, searchTerm);
     });
   });
+
+  searchBox.addEventListener(
+    "input",
+    debounce((e) => {
+      searchTerm = e.target.value;
+      loadAllVidsReq(sortBy, searchTerm);
+    }, 500)
+  );
 
   formVideoRequest.addEventListener("submit", (e) => {
     e.preventDefault();
     const formData = new FormData(formVideoRequest);
-    console.log(formData);
     fetch("http://localhost:7777/video-request", {
       method: "POST",
       body: formData,

@@ -8,6 +8,7 @@ const cors = require("cors");
 const mongoose = require("./models/mongo.config");
 
 const multer = require("multer");
+const videoRequestsData = require("./data/video-requests.data");
 
 if (!Object.keys(mongoose).length) return;
 
@@ -27,8 +28,14 @@ app.post("/video-request", upload.none(), async (req, res, next) => {
 });
 
 app.get("/video-request", async (req, res, next) => {
-  const { sortBy } = req.query;
-  let data = await VideoRequestData.getAllVideoRequests();
+  const { sortBy, searchTerm } = req.query;
+  let data;
+  if (searchTerm) {
+    data = await videoRequestsData.searchRequests(searchTerm);
+  } else {
+    data = await VideoRequestData.getAllVideoRequests();
+  }
+
   if (sortBy === "topVotedFirst") {
     data = data.sort((prev, next) => {
       if (
