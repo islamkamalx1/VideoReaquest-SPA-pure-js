@@ -24,7 +24,7 @@ function renderSingleVid(vidInfo, isPrepend = false) {
               <div class="d-flex flex-column text-center">
                 <a id="votes_ups_${vidInfo._id}" class="btn btn-link">🔺</a>
                 <h3 id="score_vote_${vidInfo._id}">${
-    vidInfo.votes.ups - vidInfo.votes.downs
+    vidInfo.votes.ups.length - vidInfo.votes.downs.length
   }</h3>
                 <a id="votes_downs_${vidInfo._id}" class="btn btn-link">🔻</a>
               </div>
@@ -49,30 +49,57 @@ function renderSingleVid(vidInfo, isPrepend = false) {
     ? listOfVidsElm.prepend(vidContainerElm)
     : listOfVidsElm.appendChild(vidContainerElm);
 
+  applyVoteStyle(vidInfo._id, vidInfo.votes);
+
   // HANDLING VOTING UPS AND DOWNS...
-  const voteUpsElm = document.getElementById(`votes_ups_${vidInfo._id}`);
-  const voteDownsElm = document.getElementById(`votes_downs_${vidInfo._id}`);
   const scoreVoteElm = document.getElementById(`score_vote_${vidInfo._id}`);
+  const votesElms = document.querySelectorAll(
+    `[id^=votes_][id$=_${vidInfo._id}]`
+  );
 
-  voteUpsElm.addEventListener("click", (e) => {
-    fetch("http://localhost:7777/video-request/vote", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id: vidInfo._id, vote_type: "ups" }),
-    })
-      .then((bolb) => bolb.json())
-      .then((data) => (scoreVoteElm.innerText = data.ups - data.downs));
-  });
+  votesElms.forEach((elm) => {
+    elm.addEventListener("click", function (e) {
+      e.preventDefault();
 
-  voteDownsElm.addEventListener("click", (e) => {
-    fetch("http://localhost:7777/video-request/vote", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id: vidInfo._id, vote_type: "downs" }),
-    })
-      .then((bolb) => bolb.json())
-      .then((data) => (scoreVoteElm.innerText = data.ups - data.downs));
+      const [, vote_type, id] = e.target.getAttribute("id").split("_");
+      fetch("http://localhost:7777/video-request/vote", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id, vote_type, user_id: state.userId }),
+      })
+        .then((bolb) => bolb.json())
+        .then((data) => {
+          scoreVoteElm.innerText = data.ups.length - data.downs.length;
+
+          applyVoteStyle(id, data, vote_type);
+        });
+    });
   });
+}
+
+function applyVoteStyle(video_id, votes_list, vote_type) {
+  if (!vote_type) {
+    if (votes_list.ups.includes(state.userId)) {
+      vote_type = "ups";
+    } else if (votes_list.downs.includes(state.userId)) {
+      vote_type = "downs";
+    } else {
+      return;
+    }
+  }
+
+  const voteUpsElm = document.getElementById(`votes_ups_${video_id}`);
+  const voteDownsElm = document.getElementById(`votes_downs_${video_id}`);
+
+  const voteDirElm = vote_type === "ups" ? voteUpsElm : voteDownsElm;
+  const otherDirElm = vote_type === "ups" ? voteDownsElm : voteUpsElm;
+
+  if (votes_list[vote_type].includes(state.userId)) {
+    voteDirElm.style.opacity = 1;
+    otherDirElm.style.opacity = 0.5;
+  } else {
+    otherDirElm.style.opacity = 1;
+  }
 }
 
 // GET ALL VIDEO REQUESTS
@@ -103,21 +130,9 @@ function debounce(fn, time) {
 
 // VALIDATE THE INPUTS BEFORE SUBMITTING
 function checkValidity(formData) {
-  // const name = formData.get("author_name");
-  // const email = formData.get("author_email");
   const topic = formData.get("topic_title");
   const details = formData.get("topic_details");
 
-  // if (!name) {
-  //   document.querySelector("[name=author_name]").classList.add("is-invalid");
-  // }
-
-  // const emailPattern =
-  //   /(?:[a-z0-9+!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])/i;
-
-  // if (!email || !emailPattern.test(email)) {
-  //   document.querySelector("[name=author_email]").classList.add("is-invalid");
-  // }
   if (!topic || topic.length > 30) {
     document.querySelector("[name=topic_title]").classList.add("is-invalid");
   }
@@ -184,6 +199,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 500)
   );
 
+  // CREATE VIDEO REQUEST
   formVideoRequest.addEventListener("submit", (e) => {
     e.preventDefault();
 
@@ -193,7 +209,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const isValid = checkValidity(formData);
     if (!isValid) return;
 
-    // CREATE VIDEO REQUEST
     fetch("http://localhost:7777/video-request", {
       method: "POST",
       body: formData,
