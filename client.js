@@ -45,6 +45,7 @@ function renderSingleVid(vidInfo, isPrepend = false) {
     ? listOfVidsElm.prepend(vidContainerElm)
     : listOfVidsElm.appendChild(vidContainerElm);
 
+  // HANDLING VOTING UPS AND DOWNS...
   const voteUpsElm = document.getElementById(`votes_ups_${vidInfo._id}`);
   const voteDownsElm = document.getElementById(`votes_downs_${vidInfo._id}`);
   const scoreVoteElm = document.getElementById(`score_vote_${vidInfo._id}`);
@@ -70,6 +71,7 @@ function renderSingleVid(vidInfo, isPrepend = false) {
   });
 }
 
+// GET ALL VIDEO REQUESTS
 function loadAllVidsReq(sortBy = "newFirst", searchTerm = "") {
   fetch(
     `http://localhost:7777/video-request?sortBy=${sortBy}&searchTerm=${searchTerm}`
@@ -95,6 +97,46 @@ function debounce(fn, time) {
   };
 }
 
+// VALIDATE THE INPUTS BEFORE SUBMITTING
+function checkValidity(formData) {
+  const name = formData.get("author_name");
+  const email = formData.get("author_email");
+  const topic = formData.get("topic_title");
+  const details = formData.get("topic_details");
+
+  if (!name) {
+    document.querySelector("[name=author_name]").classList.add("is-invalid");
+  }
+
+  const emailPattern =
+    /(?:[a-z0-9+!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])/i;
+
+  if (!email || !emailPattern.test(email)) {
+    document.querySelector("[name=author_email]").classList.add("is-invalid");
+  }
+  if (!topic || topic.length > 30) {
+    document.querySelector("[name=topic_title]").classList.add("is-invalid");
+  }
+  if (!details) {
+    document.querySelector("[name=topic_details]").classList.add("is-invalid");
+  }
+
+  const allInvalidElms = document
+    .getElementById("form")
+    .querySelectorAll(".is-invalid");
+
+  if (allInvalidElms.length) {
+    allInvalidElms.forEach((elm) => {
+      elm.addEventListener("input", function () {
+        this.classList.remove("is-invalid");
+      });
+    });
+    return false;
+  }
+
+  return true;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const formVideoRequest = document.getElementById("form");
   const sortByElms = document.querySelectorAll("[id*=sort_by_]");
@@ -102,6 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   loadAllVidsReq();
 
+  // HANDLE SORTING
   sortByElms.forEach((elm) => {
     elm.addEventListener("click", function (e) {
       e.preventDefault();
@@ -119,6 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // SEARCH BY TOPIC
   searchBox.addEventListener(
     "input",
     debounce((e) => {
@@ -129,7 +173,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   formVideoRequest.addEventListener("submit", (e) => {
     e.preventDefault();
+
     const formData = new FormData(formVideoRequest);
+
+    // Validate the form before submitting
+    const isValid = checkValidity(formData);
+    if (!isValid) return;
+
+    // CREATE VIDEO REQUEST
     fetch("http://localhost:7777/video-request", {
       method: "POST",
       body: formData,
